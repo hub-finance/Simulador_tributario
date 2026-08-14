@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Simulador de Transição Tributária">
+  <rect width="512" height="512" rx="112" fill="#2f5fd0"/>
+  <!-- Duas colunas: a guia única à esquerda, o modelo híbrido dividido à direita. -->
+  <rect x="112" y="248" width="104" height="152" rx="14" fill="#ffffff" opacity="0.72"/>
+  <rect x="296" y="304" width="104" height="96" rx="14" fill="#ffffff" opacity="0.72"/>
+  <rect x="296" y="176" width="104" height="112" rx="14" fill="#ffffff"/>
+  <!-- Linha de base. -->
+  <rect x="88" y="416" width="336" height="16" rx="8" fill="#ffffff" opacity="0.45"/>
+</svg>

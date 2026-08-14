@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { carregarCarteira, criarId, exportarCsv, importarCsv, salvarCarteira } from './app/armazenamento';
+import { registrarAplicativo, suportaInstalacao } from './app/atualizacao';
 import { entregarArquivo } from './app/download';
 import { sincronizarGruposEconomicos } from './app/grupoEconomico';
 import { clienteVazio, type Cliente, type DecisaoRegistrada } from './app/tipos';
@@ -37,7 +38,15 @@ export default function App() {
   const [referencia, setReferencia] = useState(() => new Date());
   const [aba, setAba] = useState<Aba>('simulador');
   const [aviso, setAviso] = useState<string | null>(null);
+  const [atualizacao, setAtualizacao] = useState<{ disponivel: boolean; aplicar: () => void } | null>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
+
+  // Registra o app instalável e fica ouvindo por versão nova publicada.
+  useEffect(() => {
+    void registrarAplicativo(({ temAtualizacao, atualizar }) => {
+      if (temAtualizacao) setAtualizacao({ disponivel: true, aplicar: atualizar });
+    });
+  }, []);
 
   useEffect(() => {
     salvarCarteira(clientes);
@@ -289,6 +298,27 @@ export default function App() {
         </div>
       </header>
 
+      {atualizacao?.disponivel && (
+        <div className="aviso aviso--atualizacao" role="status">
+          <span>
+            <strong>Nova versão disponível.</strong> Atualize para receber as últimas correções e tabelas.
+          </span>
+          <span className="aviso__acoes">
+            <button type="button" className="botao botao--pequeno" onClick={atualizacao.aplicar}>
+              Atualizar agora
+            </button>
+            <button
+              type="button"
+              onClick={() => setAtualizacao(null)}
+              aria-label="Adiar atualização"
+              title="Adiar"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
+
       {aviso && (
         <div className="aviso" role="status">
           {aviso}
@@ -382,6 +412,12 @@ export default function App() {
       <footer className="rodape-app">
         Parâmetros de alíquota e repartição são configuráveis em <code>src/dominio/</code>. Revalide as tabelas a
         cada ciclo anual — ver <code>docs/MATRIZ_DE_REGRAS.md</code>.
+        {suportaInstalacao() && (
+          <>
+            {' '}
+            Este simulador pode ser instalado como aplicativo pelo menu do navegador e funciona sem internet.
+          </>
+        )}
       </footer>
     </div>
   );

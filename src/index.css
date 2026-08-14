@@ -1550,3 +1550,16 @@ h3 {
   flex-shrink: 0;
   margin: 4px 0;
 }
+
+.aviso--atualizacao {
+  background: var(--positivo-fundo);
+  border-color: var(--positivo);
+  align-items: center;
+}
+
+.aviso__acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}

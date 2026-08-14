@@ -28,6 +28,25 @@ npm run build    # build de produção em dist/
 Requer Node 20+. O build gera um site estático — publicável em Netlify, Vercel ou
 qualquer servidor de arquivos.
 
+## Aplicativo instalável
+
+Publicado em um servidor com HTTPS, o simulador é um aplicativo instalável (PWA):
+
+- **Instala.** O navegador oferece "Instalar aplicativo" e ele vira um ícone na área
+  de trabalho ou na tela inicial do celular, abrindo em janela própria, sem barra de
+  endereço.
+- **Funciona sem internet.** Os arquivos ficam guardados na máquina. Sem conexão, o
+  simulador abre e calcula normalmente — só a consulta de CNPJ fica indisponível.
+- **Atualiza sozinho.** Quando uma versão nova é publicada, o app avisa com uma faixa
+  no topo e aplica com um clique. Ninguém precisa baixar arquivo de novo.
+
+A atualização é por aviso, não automática: quem está no meio de uma simulação decide
+a hora de recarregar.
+
+Nada disso vale para o arquivo único aberto direto do disco nem para a versão
+publicada como página no Claude — instalação e atualização automática exigem
+hospedagem em servidor.
+
 ## O que o sistema faz
 
 **Consulta por CNPJ.** Digite o CNPJ e o sistema busca na base pública da Receita Federal:
@@ -87,6 +106,7 @@ src/
   app/              Modelo de dados, persistência, importação CSV
     consultaCnpj.ts      Consulta à base da Receita Federal e sugestão de anexo pelo CNAE
     grupoEconomico.ts    Cruzamento de sócios entre os clientes da carteira
+    atualizacao.ts       Registro do aplicativo instalável e troca de versão
   ui/               Componentes de interface
 db/schema.sql       Schema relacional de destino, para quando houver backend
 docs/               Planejamento e matriz de regras

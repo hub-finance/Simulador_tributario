@@ -109,14 +109,17 @@ integral, IPI zerado, destaque de IBS/CBS na nota para quem optou pelo híbrido.
 | Diagnóstico | `src/dominio/diagnostico.ts` | Recomendação, ponto de equilíbrio comercial, alertas e bloqueios |
 | Segmentação | `src/dominio/segmentacao.ts` | Classificação automática da carteira nos quatro grupos de tratamento da Fase 2 |
 | Relatórios | `src/relatorios/` | Diagnóstico do cliente, diagnóstico de prospecção e consolidado da carteira |
-| Interface | `src/ui/`, `src/App.tsx` | Dashboard, projeção 2026–2033, cronograma e central de relatórios |
+| Interface | `src/ui/`, `src/App.tsx` | Dashboard, projeção 2026–2033, cronograma, relatórios e Ajuda |
+| Aplicativo instalável | `vite.config.ts`, `src/app/atualizacao.ts` | Instala, funciona sem internet e se atualiza com um clique quando há versão nova |
 
 ### Próximos passos sugeridos
 
 1. **Integração com o sistema contábil** — hoje a entrada é por CSV. O passo natural é
    consumir a API/exportação direta e eliminar a digitação.
 2. **Backend e base compartilhada** — o schema relacional está em `db/schema.sql`.
-   Enquanto não existe, os dados ficam no navegador de quem usa (`localStorage`).
+   Enquanto não existe, os dados ficam no navegador de quem usa (`localStorage`), o que
+   significa que a carteira não acompanha o usuário entre máquinas. É a maior limitação
+   em aberto e a próxima a resolver.
 3. **Histórico de simulações** — guardar cada rodada com data e parâmetros, para provar
    o que foi recomendado e com que números.
 4. **Painel de carteira** — visão agregada: quantos clientes em cada grupo, quanto de
