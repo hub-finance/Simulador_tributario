@@ -14,7 +14,18 @@ import { VitePWA } from 'vite-plugin-pwa';
  * A atualização é por aviso (`prompt`) e não automática de propósito: quem está
  * no meio de uma simulação decide a hora de recarregar.
  */
+/*
+ * Caminho em que o simulador é servido.
+ *
+ * Na Netlify ou em domínio próprio ele fica na raiz. No GitHub Pages fica em um
+ * subcaminho com o nome do repositório, e tanto os arquivos quanto o escopo do
+ * aplicativo instalável precisam saber disso — senão a página abre em branco.
+ * O workflow de publicação define BASE_PATH; fora dele, vale a raiz.
+ */
+const base = process.env.BASE_PATH ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -26,8 +37,8 @@ export default defineConfig({
         description:
           'Comparativo entre o modelo Tradicional e o Híbrido do Simples Nacional para a janela de opção de setembro de 2026.',
         lang: 'pt-BR',
-        start_url: '/',
-        scope: '/',
+        start_url: base,
+        scope: base,
         display: 'standalone',
         orientation: 'any',
         background_color: '#f4f6f9',

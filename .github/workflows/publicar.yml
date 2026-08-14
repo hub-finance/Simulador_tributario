@@ -1,0 +1,60 @@
+# Publica o simulador no GitHub Pages a cada push na branch principal.
+#
+# Para ligar, uma única vez: Settings → Pages → Source: "GitHub Actions".
+# Depois disso, toda correção enviada ao repositório vai ao ar sozinha, e quem
+# tiver o aplicativo instalado recebe o aviso de versão nova.
+name: Publicar simulador
+
+on:
+  push:
+    branches: [claude/tax-calendar-2026-2027-wi3adr]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Uma publicação por vez; se chegar push novo durante uma, a anterior é abandonada.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # A publicação só acontece com os testes passando: uma tabela de alíquota
+      # errada não pode chegar ao escritório por descuido.
+      - name: Rodar os testes
+        run: npm test
+
+      - name: Construir
+        env:
+          # No GitHub Pages o site fica sob /<nome-do-repositorio>/.
+          BASE_PATH: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  publicar:
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
