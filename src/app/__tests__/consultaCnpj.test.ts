@@ -216,8 +216,11 @@ describe('consulta', () => {
   });
 
   it('sem fetch no ambiente, avisa em vez de quebrar', async () => {
-    const r = await consultarCnpj('19131243000197', undefined as unknown as typeof fetch);
+    // `null` e não `undefined`: parâmetro `undefined` cai no valor padrão da função,
+    // que é o fetch real — o teste iria à internet em vez de exercitar este caminho.
+    const r = await consultarCnpj('19131243000197', null as unknown as typeof fetch);
     expect(r).toMatchObject({ estado: 'indisponivel' });
+    if (r.estado === 'indisponivel') expect(r.motivo).toContain('não disponível neste ambiente');
   });
 });
 
