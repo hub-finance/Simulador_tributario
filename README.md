@@ -21,7 +21,7 @@ híbrido pode custar a mais em caixa e ainda assim compensar.
 ```bash
 npm install
 npm run dev      # servidor de desenvolvimento
-npm test         # 125 testes do motor, das regras, dos relatórios e do conteúdo da Ajuda
+npm test         # 164 testes do motor, das regras, dos relatórios, da consulta e do conteúdo da Ajuda
 npm run build    # build de produção em dist/
 ```
 
@@ -29,6 +29,13 @@ Requer Node 20+. O build gera um site estático — publicável em Netlify, Verc
 qualquer servidor de arquivos.
 
 ## O que o sistema faz
+
+**Consulta por CNPJ.** Digite o CNPJ e o sistema busca na base pública da Receita Federal:
+razão social, CNAE, anexo sugerido pela atividade, situação cadastral e quadro societário.
+Situação diferente de ATIVA vira pendência cadastral automaticamente — a mesma que bloqueia
+a opção na janela. Os sócios são cruzados com o resto da carteira para apontar grupo
+econômico antes que a malha fina aponte. A consulta é conveniência: se a rede bloquear,
+o preenchimento manual continua completo.
 
 **Simulador.** Cadastro do cliente (RBT12, faturamento, insumos, folha, perfil comercial)
 e comparativo lado a lado dos dois cenários, com a guia decomposta por tributo e o crédito
@@ -77,7 +84,9 @@ src/
     segmentacao.ts       Classificação da carteira em grupos de tratamento
   relatorios/       Geração dos três documentos e sua entrega (imprimir ou baixar)
   conteudo/         Texto da aba Ajuda, como dado estruturado e testável
-  app/              Modelo de dados e persistência (localStorage, importação CSV)
+  app/              Modelo de dados, persistência, importação CSV
+    consultaCnpj.ts      Consulta à base da Receita Federal e sugestão de anexo pelo CNAE
+    grupoEconomico.ts    Cruzamento de sócios entre os clientes da carteira
   ui/               Componentes de interface
 db/schema.sql       Schema relacional de destino, para quando houver backend
 docs/               Planejamento e matriz de regras

@@ -34,6 +34,9 @@ export interface Cliente {
   saldoCredorAnterior: number;
   ibsAcumulado12Meses: number;
 
+  /** Sócios vindos da consulta ao CNPJ. Base do cruzamento de grupo econômico. */
+  socios: string[];
+
   possuiDebitosEmAberto: boolean;
   valorDebitos: number;
   possuiPendenciasCadastrais: boolean;
@@ -65,6 +68,7 @@ export function clienteVazio(id: string): Cliente {
     sujeitoAoFatorR: false,
     saldoCredorAnterior: 0,
     ibsAcumulado12Meses: 0,
+    socios: [],
     possuiDebitosEmAberto: false,
     valorDebitos: 0,
     possuiPendenciasCadastrais: false,

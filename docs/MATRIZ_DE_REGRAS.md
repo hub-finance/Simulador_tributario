@@ -110,6 +110,23 @@ Legenda de status: **✅ implementada e testada** · **⚙️ parametrizável** 
 | 10.3 | B2B com Tradicional mais barato vai para "Decisão comercial" | ✅ | `classificar` | › "B2B com Tradicional mais barato cai em decisão comercial" |
 | 10.4 | Consolidação de totais e contagem de bloqueios da carteira | ✅ | `resumirCarteira` | › "o resumo soma custos e conta bloqueios" |
 
+## 10-A. Consulta por CNPJ e grupo econômico
+
+| # | Regra | Status | Implementação | Teste |
+|---|---|---|---|---|
+| 10A.1 | Validação dos dígitos verificadores antes de ir à rede | ✅ | `consultaCnpj.ts` → `validarCnpj` | `consultaCnpj.test.ts` › "validação dos dígitos verificadores" |
+| 10A.2 | Consulta à base pública da Receita Federal preenche o cadastro | ✅ | `consultarCnpj`, `preencherComDadosDaReceita` | › "devolve os dados quando o serviço responde" |
+| 10A.3 | Situação cadastral diferente de ATIVA vira pendência cadastral | ✅ | `preencherComDadosDaReceita` | › "situação irregular vira pendência cadastral" |
+| 10A.4 | Anexo sugerido a partir da divisão do CNAE | ✅ | `anexoSugeridoPorCnae` | › "sugestão de anexo pelo CNAE" (7 casos) |
+| 10A.5 | Números da simulação nunca são sobrescritos pela consulta | ✅ | `preencherComDadosDaReceita` | › "sem tocar nos números da simulação" |
+| 10A.6 | Falha de rede não quebra o cadastro manual | ✅ | `consultarCnpj` → estado `indisponivel` | › "falha de rede não lança, vira indisponível" |
+| 10A.7 | Sócios em comum entre clientes apontam grupo econômico | ✅ | `grupoEconomico.ts` → `sincronizarGruposEconomicos` | › "sincroniza a carteira inteira" |
+
+**Limitação declarada:** a consulta depende de acesso à internet a partir do navegador de quem
+opera. Ela não funciona na versão publicada como artifact (política de segurança da página
+bloqueia requisições externas) nem em rede corporativa que bloqueie o domínio. Nesses casos o
+preenchimento manual segue completo e o cálculo não é afetado.
+
 ## 11. Aba Ajuda (convenção do projeto)
 
 Ver `CLAUDE.md`: todo sistema construído para este usuário precisa de uma aba Ajuda didática.

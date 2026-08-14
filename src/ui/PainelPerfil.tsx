@@ -1,3 +1,10 @@
+import { useState } from 'react';
+import {
+  consultarCnpj,
+  formatarCnpj,
+  preencherComDadosDaReceita,
+  validarCnpj,
+} from '../app/consultaCnpj';
 import type { Cliente } from '../app/tipos';
 import { fracaoB2BDoPerfil } from '../app/tipos';
 import { calcularFatorR } from '../dominio/fatorR';
@@ -8,6 +15,8 @@ import { percentual, reais } from './formatacao';
 interface Props {
   cliente: Cliente;
   onAlterar: (alteracoes: Partial<Cliente>) => void;
+  /** Mensagens da consulta ao CNPJ, exibidas na barra de avisos da aplicação. */
+  onAvisar: (mensagem: string) => void;
   ano: number;
   onAlterarAno: (ano: number) => void;
   anosDisponiveis: number[];
@@ -45,7 +54,32 @@ function CampoNumero({
   );
 }
 
-export function PainelPerfil({ cliente, onAlterar, ano, onAlterarAno, anosDisponiveis }: Props) {
+export function PainelPerfil({ cliente, onAlterar, onAvisar, ano, onAlterarAno, anosDisponiveis }: Props) {
+  const [consultando, setConsultando] = useState(false);
+  const cnpjCompleto = validarCnpj(cliente.cnpj);
+
+  async function buscarNaReceita() {
+    setConsultando(true);
+    try {
+      const resultado = await consultarCnpj(cliente.cnpj);
+      if (resultado.estado === 'ok') {
+        const { alteracoes, avisos } = preencherComDadosDaReceita(resultado.dados);
+        onAlterar(alteracoes);
+        onAvisar(avisos.join(' '));
+      } else if (resultado.estado === 'invalido') {
+        onAvisar(resultado.motivo);
+      } else if (resultado.estado === 'nao-encontrado') {
+        onAvisar('CNPJ não encontrado na base da Receita Federal.');
+      } else {
+        onAvisar(
+          `Consulta indisponível: ${resultado.motivo}. Preencha os dados manualmente — o cálculo não depende da consulta.`,
+        );
+      }
+    } finally {
+      setConsultando(false);
+    }
+  }
+
   const fatorR = calcularFatorR({ folha12Meses: cliente.folha12Meses, rbt12: cliente.rbt12 });
   const anexoEfetivo: NumeroAnexo = cliente.sujeitoAoFatorR ? fatorR.anexoAplicavel : cliente.anexo;
 
@@ -78,14 +112,29 @@ export function PainelPerfil({ cliente, onAlterar, ano, onAlterarAno, anosDispon
 
         <label className="campo">
           <span className="campo__rotulo">CNPJ</span>
-          <span className="campo__entrada">
+          <span className="campo__entrada campo__entrada--com-acao">
             <input
               type="text"
+              inputMode="numeric"
               value={cliente.cnpj}
               placeholder="00.000.000/0001-00"
-              onChange={(e) => onAlterar({ cnpj: e.target.value })}
+              onChange={(e) => onAlterar({ cnpj: formatarCnpj(e.target.value) })}
             />
+            <button
+              type="button"
+              className="botao botao--pequeno"
+              onClick={() => void buscarNaReceita()}
+              disabled={!cnpjCompleto || consultando}
+              title={cnpjCompleto ? 'Buscar dados na base da Receita Federal' : 'Informe um CNPJ válido'}
+            >
+              {consultando ? 'Buscando…' : 'Buscar'}
+            </button>
           </span>
+          <small className="campo__ajuda">
+            {cliente.cnpj && !cnpjCompleto
+              ? 'CNPJ incompleto ou com dígito verificador incorreto.'
+              : 'Preenche razão social, CNAE, anexo sugerido, situação cadastral e sócios.'}
+          </small>
         </label>
 
         <label className="campo">
@@ -225,10 +274,17 @@ export function PainelPerfil({ cliente, onAlterar, ano, onAlterarAno, anosDispon
         </p>
       )}
 
-      {cliente.cnpjsInterligados.length > 0 && (
+      {cliente.socios.length > 0 && (
         <p className="faixa-info">
-          <strong>Grupo econômico:</strong> {cliente.cnpjsInterligados.length} CNPJ(s) interligado(s), somando{' '}
-          {reais(cliente.cnpjsInterligados.reduce((a, c) => a + c.rbt12, 0))} de RBT12.
+          <strong>Quadro societário:</strong> {cliente.socios.join(', ')}.
+        </p>
+      )}
+
+      {cliente.cnpjsInterligados.length > 0 && (
+        <p className="faixa-info faixa-info--alerta">
+          <strong>Grupo econômico detectado por sócio em comum:</strong>{' '}
+          {cliente.cnpjsInterligados.map((c) => c.nome).join(', ')} — somando{' '}
+          {reais(cliente.cnpjsInterligados.reduce((a, c) => a + c.rbt12, 0))} de RBT12 além deste cliente.
         </p>
       )}
     </section>

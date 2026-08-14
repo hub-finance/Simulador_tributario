@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { carregarCarteira, criarId, exportarCsv, importarCsv, salvarCarteira } from './app/armazenamento';
 import { entregarArquivo } from './app/download';
+import { sincronizarGruposEconomicos } from './app/grupoEconomico';
 import { clienteVazio, type Cliente, type DecisaoRegistrada } from './app/tipos';
 import { agendaAtiva, janelaVigente, proximaJanela } from './dominio/calendario';
 import { diagnosticar } from './dominio/diagnostico';
@@ -40,6 +41,15 @@ export default function App() {
 
   useEffect(() => {
     salvarCarteira(clientes);
+  }, [clientes]);
+
+  // O cruzamento de sócios roda sobre a carteira inteira: mexer em um cliente pode
+  // criar ou desfazer vínculo de grupo econômico em outro.
+  useEffect(() => {
+    setClientes((atual) => {
+      const sincronizada = sincronizarGruposEconomicos(atual);
+      return sincronizada.every((c, i) => c === atual[i]) ? atual : sincronizada;
+    });
   }, [clientes]);
 
   const cliente = clientes.find((c) => c.id === selecionadoId) ?? null;
@@ -341,6 +351,7 @@ export default function App() {
               <PainelPerfil
                 cliente={cliente}
                 onAlterar={alterarCliente}
+                onAvisar={setAviso}
                 ano={ano}
                 onAlterarAno={setAno}
                 anosDisponiveis={ANOS}

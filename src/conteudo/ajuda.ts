@@ -365,6 +365,15 @@ export const SECOES_AJUDA: SecaoAjuda[] = [
         tipo: 'campos',
         itens: [
           {
+            campo: 'CNPJ',
+            oQueE:
+              'Digite e clique em Buscar: o sistema consulta a base pública da Receita Federal e preenche razão ' +
+              'social, CNAE, anexo sugerido, situação cadastral e quadro societário. Os números da simulação não ' +
+              'vêm de lá — esses continuam por sua conta.',
+            ondeAcha:
+              'Cartão CNPJ do cliente. Se a consulta não responder, preencha à mão: o cálculo não depende dela.',
+          },
+          {
             campo: 'RBT12',
             oQueE: 'Receita bruta acumulada dos últimos 12 meses. Define a faixa e a alíquota.',
             ondeAcha: 'PGDAS-D da última competência ou relatório de faturamento do sistema contábil.',
@@ -515,6 +524,17 @@ export const SECOES_AJUDA: SecaoAjuda[] = [
               'o indicador verde na carteira mostra o avanço do trabalho.',
           },
         ],
+      },
+      {
+        tipo: 'destaque',
+        tom: 'info',
+        titulo: 'Sobre a consulta por CNPJ',
+        texto:
+          'A consulta usa a base pública da Receita Federal e serve para poupar digitação e pegar duas coisas ' +
+          'que importam: situação cadastral irregular, que vira pendência e bloqueia a opção, e o quadro ' +
+          'societário, que o sistema cruza com o resto da carteira para apontar grupo econômico. O anexo vem ' +
+          'como sugestão a partir do CNAE — confira, porque atividade mista e caso de fronteira a consulta não ' +
+          'resolve. Se a rede do escritório bloquear a consulta, tudo continua funcionando no preenchimento manual.',
       },
       {
         tipo: 'destaque',
