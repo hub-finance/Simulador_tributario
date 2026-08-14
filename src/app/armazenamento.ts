@@ -41,6 +41,72 @@ export function criarId(): string {
 }
 
 // ---------------------------------------------------------------------------
+// Cópia de segurança completa
+// ---------------------------------------------------------------------------
+
+/**
+ * A carteira inteira, com tudo: decisões registradas, débitos, pendências
+ * cadastrais, sócios e vínculos de grupo econômico.
+ *
+ * O CSV existe para conversar com o sistema contábil e carrega só os números da
+ * simulação. Ele não serve como cópia de segurança — reimportar um CSV traz os
+ * clientes de volta sem as decisões, que é justamente o registro que prova o que
+ * foi orientado, por quem e quando. Para levar a carteira de uma máquina a outra,
+ * ou para guardar cópia, use este formato.
+ */
+export interface Backup {
+  formato: 'simulador-tributario/carteira';
+  versao: 1;
+  geradoEm: string;
+  clientes: Cliente[];
+}
+
+export function exportarBackup(clientes: Cliente[]): string {
+  const backup: Backup = {
+    formato: 'simulador-tributario/carteira',
+    versao: 1,
+    geradoEm: new Date().toISOString(),
+    clientes,
+  };
+  return JSON.stringify(backup, null, 2);
+}
+
+export function importarBackup(conteudo: string): ResultadoImportacao {
+  let dados: unknown;
+  try {
+    dados = JSON.parse(conteudo);
+  } catch {
+    return { clientes: [], importados: 0, erros: ['Arquivo de cópia de segurança ilegível.'] };
+  }
+
+  if (typeof dados !== 'object' || dados === null) {
+    return { clientes: [], importados: 0, erros: ['Arquivo não é uma cópia de segurança da carteira.'] };
+  }
+
+  const b = dados as Partial<Backup>;
+  if (b.formato !== 'simulador-tributario/carteira' || !Array.isArray(b.clientes)) {
+    return { clientes: [], importados: 0, erros: ['Arquivo não é uma cópia de segurança da carteira.'] };
+  }
+
+  const erros: string[] = [];
+  // Ids novos evitam colidir com clientes já presentes na máquina de destino.
+  const clientes = b.clientes.map((c) => normalizar({ ...c, id: criarId() }));
+
+  const decisoes = clientes.filter((c) => c.decisao !== null).length;
+  if (decisoes > 0) erros.push(`${decisoes} decisão(ões) registrada(s) vieram junto.`);
+
+  return { clientes, importados: clientes.length, erros };
+}
+
+/** Reconhece o formato pelo conteúdo, para o usuário não precisar escolher. */
+export function importarArquivo(conteudo: string): ResultadoImportacao & { formato: 'backup' | 'csv' } {
+  const inicio = conteudo.trimStart();
+  return inicio.startsWith('{')
+    ? { ...importarBackup(conteudo), formato: 'backup' }
+    : { ...importarCsv(conteudo), formato: 'csv' };
+}
+
+// ---------------------------------------------------------------------------
 // Importação CSV (layout de exportação do sistema contábil)
 // ---------------------------------------------------------------------------
 
@@ -133,6 +199,10 @@ export function importarCsv(conteudo: string): ResultadoImportacao {
   return { clientes, importados: clientes.length, erros };
 }
 
+/**
+ * Layout de troca com o sistema contábil. Leva só os campos que alimentam a
+ * simulação — para cópia de segurança use `exportarBackup`.
+ */
 export function exportarCsv(clientes: Cliente[]): string {
   const linhas = clientes.map((c) =>
     [

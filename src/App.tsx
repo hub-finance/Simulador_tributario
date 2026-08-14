@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { carregarCarteira, criarId, exportarCsv, importarCsv, salvarCarteira } from './app/armazenamento';
+import {
+  carregarCarteira,
+  criarId,
+  exportarBackup,
+  exportarCsv,
+  importarArquivo as lerArquivoDaCarteira,
+  salvarCarteira,
+} from './app/armazenamento';
 import { registrarAplicativo, suportaInstalacao } from './app/atualizacao';
 import { entregarArquivo } from './app/download';
 import { sincronizarGruposEconomicos } from './app/grupoEconomico';
@@ -231,25 +238,48 @@ export default function App() {
 
   async function importarArquivo(arquivo: File) {
     const texto = await arquivo.text();
-    const { clientes: novos, importados, erros } = importarCsv(texto);
+    const { clientes: novos, importados, erros, formato } = lerArquivoDaCarteira(texto);
     if (importados > 0) {
       setClientes((atual) => [...atual, ...novos]);
       setSelecionadoId(novos[0].id);
     }
+    const origem = formato === 'backup' ? 'cópia de segurança' : 'planilha';
     setAviso(
-      `${importados} cliente(s) importado(s).` + (erros.length > 0 ? ` ${erros.length} aviso(s): ${erros[0]}` : ''),
+      `${importados} cliente(s) importado(s) da ${origem}.` +
+        (erros.length > 0 ? ` ${erros.join(' ')}` : ''),
     );
   }
 
+  /** Cópia de segurança completa: leva decisões, pendências, sócios e vínculos. */
   async function baixarCarteira() {
-    const resultado = await entregarArquivo('carteira-simulador.csv', exportarCsv(clientes), 'text/csv');
+    const data = new Date().toISOString().slice(0, 10);
+    const resultado = await entregarArquivo(
+      `carteira-${data}.json`,
+      exportarBackup(clientes),
+      'application/json',
+    );
     if (resultado.estado === 'salvo') {
-      setAviso(`Carteira exportada em ${resultado.nomeArquivo}.`);
+      setAviso(
+        `Carteira salva em ${resultado.nomeArquivo}, com as decisões registradas. ` +
+          'Guarde este arquivo: é a única cópia dos dados fora desta máquina.',
+      );
     } else if (resultado.estado === 'recusado') {
       setAviso('Download cancelado.');
     } else {
       setAviso(`Não foi possível exportar: ${resultado.motivo}.`);
     }
+  }
+
+  /** Layout de troca com o sistema contábil — só os números da simulação. */
+  async function baixarPlanilha() {
+    const resultado = await entregarArquivo('carteira-simulador.csv', exportarCsv(clientes), 'text/csv');
+    setAviso(
+      resultado.estado === 'salvo'
+        ? `Planilha exportada em ${resultado.nomeArquivo}. Ela não inclui as decisões — para cópia de segurança use "Salvar carteira".`
+        : resultado.estado === 'recusado'
+          ? 'Download cancelado.'
+          : `Não foi possível exportar: ${resultado.motivo}.`,
+    );
   }
 
   return (
@@ -281,7 +311,7 @@ export default function App() {
           <input
             ref={inputArquivo}
             type="file"
-            accept=".csv,text/csv"
+            accept=".json,.csv,application/json,text/csv"
             hidden
             onChange={(e) => {
               const arquivo = e.target.files?.[0];
@@ -290,10 +320,23 @@ export default function App() {
             }}
           />
           <button type="button" className="botao" onClick={() => inputArquivo.current?.click()}>
-            Importar CSV
+            Importar
           </button>
-          <button type="button" className="botao botao--secundario" onClick={() => void baixarCarteira()}>
-            Exportar carteira
+          <button
+            type="button"
+            className="botao botao--secundario"
+            onClick={() => void baixarCarteira()}
+            title="Cópia de segurança completa, com as decisões registradas"
+          >
+            Salvar carteira
+          </button>
+          <button
+            type="button"
+            className="botao botao--secundario"
+            onClick={() => void baixarPlanilha()}
+            title="Layout de troca com o sistema contábil, só com os números"
+          >
+            Exportar CSV
           </button>
         </div>
       </header>

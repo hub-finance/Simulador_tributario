@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { CABECALHO_CSV, exportarCsv, importarCsv } from '../armazenamento';
+import {
+  CABECALHO_CSV,
+  exportarBackup,
+  exportarCsv,
+  importarArquivo,
+  importarBackup,
+  importarCsv,
+} from '../armazenamento';
 import { clienteVazio } from '../tipos';
 
 describe('importação de carteira via CSV', () => {
@@ -110,5 +117,89 @@ describe('exportação de carteira', () => {
       insumosTributaveis: original.insumosTributaveis,
       folha12Meses: original.folha12Meses,
     });
+  });
+});
+
+describe('cópia de segurança da carteira', () => {
+  /** Cliente com tudo preenchido, inclusive o que o CSV não carrega. */
+  const completo = () => ({
+    ...clienteVazio('id-1'),
+    nome: 'Metalúrgica Aurora Ltda',
+    cnpj: '12.345.678/0001-90',
+    anexo: 2 as const,
+    perfil: 'B2B' as const,
+    percentualReceitaB2B: 1,
+    rbt12: 2_400_000,
+    faturamentoMensal: 210_000,
+    insumosTributaveis: 96_000,
+    folha12Meses: 420_000,
+    saldoCredorAnterior: 1_500,
+    ibsAcumulado12Meses: 900,
+    sujeitoAoFatorR: true,
+    socios: ['JOSE DA SILVA', 'ANA SOUZA'],
+    possuiDebitosEmAberto: true,
+    valorDebitos: 18_400,
+    possuiPendenciasCadastrais: true,
+    cnpjsInterligados: [{ cnpj: '11.111.111/0001-11', nome: 'Coligada', rbt12: 800_000 }],
+    decisao: {
+      cenario: 'Híbrido' as const,
+      janela: 'Setembro/2026' as const,
+      registradaEm: '2026-09-10T12:00:00.000Z',
+      responsavel: 'Breno',
+      observacao: 'Cliente aceitou o custo adicional para manter o contrato com a indústria.',
+    },
+  });
+
+  it('a cópia preserva a decisão registrada, que é o que prova a orientação dada', () => {
+    const { clientes } = importarBackup(exportarBackup([completo()]));
+    expect(clientes[0].decisao).toEqual(completo().decisao);
+  });
+
+  it('a cópia preserva bloqueios, sócios e vínculos de grupo econômico', () => {
+    const [c] = importarBackup(exportarBackup([completo()])).clientes;
+    expect(c.possuiDebitosEmAberto).toBe(true);
+    expect(c.valorDebitos).toBe(18_400);
+    expect(c.possuiPendenciasCadastrais).toBe(true);
+    expect(c.socios).toEqual(['JOSE DA SILVA', 'ANA SOUZA']);
+    expect(c.cnpjsInterligados).toHaveLength(1);
+    expect(c.saldoCredorAnterior).toBe(1_500);
+    expect(c.ibsAcumulado12Meses).toBe(900);
+    expect(c.sujeitoAoFatorR).toBe(true);
+  });
+
+  it('o CSV NÃO preserva esses campos — por isso não serve de cópia de segurança', () => {
+    const [c] = importarCsv(exportarCsv([completo()])).clientes;
+    expect(c.decisao).toBeNull();
+    expect(c.possuiDebitosEmAberto).toBe(false);
+    expect(c.socios).toEqual([]);
+    expect(c.cnpjsInterligados).toEqual([]);
+    // Os números da simulação continuam vindo, que é o propósito do CSV.
+    expect(c.rbt12).toBe(2_400_000);
+  });
+
+  it('cada cliente restaurado recebe id novo, para não colidir com o destino', () => {
+    const original = completo();
+    const [c] = importarBackup(exportarBackup([original])).clientes;
+    expect(c.id).not.toBe(original.id);
+    expect(c.nome).toBe(original.nome);
+  });
+
+  it('avisa quantas decisões vieram na cópia', () => {
+    const semDecisao = { ...completo(), id: 'id-2', decisao: null };
+    const { erros, importados } = importarBackup(exportarBackup([completo(), semDecisao]));
+    expect(importados).toBe(2);
+    expect(erros.join(' ')).toContain('1 decisão(ões)');
+  });
+
+  it('rejeita arquivo que não é cópia da carteira', () => {
+    expect(importarBackup('{"formato":"outra-coisa"}').importados).toBe(0);
+    expect(importarBackup('não é json').erros[0]).toContain('ilegível');
+    expect(importarBackup('[]').erros[0]).toContain('não é uma cópia');
+  });
+
+  it('reconhece o formato do arquivo pelo conteúdo', () => {
+    expect(importarArquivo(exportarBackup([completo()])).formato).toBe('backup');
+    expect(importarArquivo(exportarCsv([completo()])).formato).toBe('csv');
+    expect(importarArquivo('  \n' + exportarBackup([completo()])).formato).toBe('backup');
   });
 });

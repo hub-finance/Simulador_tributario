@@ -542,8 +542,10 @@ export const SECOES_AJUDA: SecaoAjuda[] = [
         titulo: 'Onde ficam os dados',
         texto:
           'Os dados ficam salvos no navegador desta máquina, não em servidor. Isso significa que nada de ' +
-          'cliente sai daqui — e também que a carteira não é compartilhada entre computadores. Use "Exportar ' +
-          'carteira" para levar os dados para outra máquina ou fazer cópia de segurança.',
+          'cliente sai daqui — e também que a carteira não é compartilhada entre computadores, e some se ' +
+          'alguém limpar os dados do navegador. Use "Salvar carteira" com frequência: é a única cópia dos ' +
+          'dados fora desta máquina, e leva tudo, inclusive as decisões registradas. O "Exportar CSV" serve ' +
+          'para conversar com o sistema contábil e leva só os números — não use como cópia de segurança.',
       },
     ],
   },
