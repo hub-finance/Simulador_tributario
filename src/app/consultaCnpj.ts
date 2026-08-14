@@ -17,7 +17,30 @@
 import type { NumeroAnexo } from '../dominio/tabelasSimples';
 import type { Cliente } from './tipos';
 
-const ENDPOINT = 'https://brasilapi.com.br/api/cnpj/v1';
+/**
+ * Fontes consultadas, em ordem. As duas espelham a base pública do CNPJ da Receita
+ * Federal, aceitam requisição do navegador e não exigem cadastro. Ter mais de uma
+ * importa porque rede corporativa costuma bloquear domínio por lista, e o que está
+ * bloqueado em um escritório costuma estar liberado em outro.
+ */
+export const FONTES = [
+  { nome: 'BrasilAPI', url: (d: string) => `https://brasilapi.com.br/api/cnpj/v1/${d}` },
+  { nome: 'CNPJ.ws', url: (d: string) => `https://publica.cnpj.ws/cnpj/${d}` },
+] as const;
+
+/**
+ * Detecta o ambiente da página publicada no Claude, que roda sob uma política de
+ * segurança que bloqueia qualquer requisição a outro servidor. Vale checar antes de
+ * tentar: evita uma espera inútil e permite explicar o motivo de verdade.
+ */
+export function consultaBloqueadaPeloAmbiente(): boolean {
+  const c = (globalThis as { claude?: { use?: unknown } }).claude;
+  return typeof c?.use === 'function';
+}
+
+export const MOTIVO_AMBIENTE_BLOQUEADO =
+  'a versão publicada como página no Claude não pode consultar serviços externos. ' +
+  'Use o arquivo do simulador ou a versão publicada no servidor do escritório';
 
 // ---------------------------------------------------------------------------
 // Validação e formatação
@@ -101,9 +124,29 @@ export type ResultadoConsulta =
  * Uma API pública pode renomear campo sem aviso, e a consulta é conveniência — não
  * pode derrubar o cadastro do cliente.
  */
+/** Lê uma chave de um valor que pode vir como objeto aninhado. */
+function objetoTexto(valor: unknown, ...chaves: string[]): string {
+  if (typeof valor !== 'object' || valor === null) return '';
+  const o = valor as Record<string, unknown>;
+  for (const chave of chaves) {
+    const v = o[chave];
+    if (typeof v === 'string' && v.trim()) return v.trim();
+    if (typeof v === 'number') return String(v);
+  }
+  return '';
+}
+
 export function extrairDados(payload: unknown): DadosCnpj | null {
   if (typeof payload !== 'object' || payload === null) return null;
-  const p = payload as Record<string, unknown>;
+
+  const bruto = payload as Record<string, unknown>;
+  // O CNPJ.ws aninha os dados do estabelecimento; a BrasilAPI devolve tudo no topo.
+  // Achatamos os dois em um único objeto antes de ler, com o topo tendo precedência.
+  const estabelecimento =
+    typeof bruto.estabelecimento === 'object' && bruto.estabelecimento !== null
+      ? (bruto.estabelecimento as Record<string, unknown>)
+      : {};
+  const p: Record<string, unknown> = { ...estabelecimento, ...bruto };
 
   const texto = (...chaves: string[]): string => {
     for (const chave of chaves) {
@@ -114,7 +157,9 @@ export function extrairDados(payload: unknown): DadosCnpj | null {
     return '';
   };
 
-  const cnpj = normalizarCnpj(texto('cnpj', 'estabelecimento'));
+  const cnpj = normalizarCnpj(
+    typeof p.cnpj === 'string' ? p.cnpj : typeof estabelecimento.cnpj === 'string' ? estabelecimento.cnpj : '',
+  );
   const razaoSocial = texto('razao_social', 'nome', 'razaoSocial');
   if (!cnpj && !razaoSocial) return null;
 
@@ -132,7 +177,7 @@ export function extrairDados(payload: unknown): DadosCnpj | null {
     return null;
   };
 
-  const listaSocios = Array.isArray(p.qsa) ? p.qsa : [];
+  const listaSocios = Array.isArray(p.qsa) ? p.qsa : Array.isArray(bruto.socios) ? bruto.socios : [];
   const socios: SocioCnpj[] = listaSocios
     .map((s) => {
       if (typeof s !== 'object' || s === null) return null;
@@ -150,8 +195,12 @@ export function extrairDados(payload: unknown): DadosCnpj | null {
     cnpj,
     razaoSocial,
     nomeFantasia: texto('nome_fantasia', 'fantasia'),
-    cnaePrincipal: texto('cnae_fiscal', 'cnae_fiscal_principal', 'cnae_principal'),
-    descricaoCnae: texto('cnae_fiscal_descricao', 'atividade_principal_descricao'),
+    cnaePrincipal:
+      texto('cnae_fiscal', 'cnae_fiscal_principal', 'cnae_principal') ||
+      objetoTexto(p.atividade_principal, 'id', 'codigo'),
+    descricaoCnae:
+      texto('cnae_fiscal_descricao', 'atividade_principal_descricao') ||
+      objetoTexto(p.atividade_principal, 'descricao'),
     situacaoCadastral: situacao || 'DESCONHECIDA',
     // Só marcamos irregular quando a situação é conhecida e diferente de ATIVA.
     cadastroIrregular: situacao !== '' && situacao !== 'ATIVA',
@@ -166,10 +215,11 @@ export function extrairDados(payload: unknown): DadosCnpj | null {
 }
 
 /**
- * Consulta o CNPJ. Recebe o `fetch` por parâmetro para permitir teste sem rede.
+ * Consulta o CNPJ, tentando cada fonte em ordem até uma responder.
  *
- * Nunca lança: erro de rede, bloqueio de CORS ou resposta inesperada viram o estado
- * `indisponivel`, e o cadastro manual segue disponível.
+ * Recebe o `fetch` por parâmetro para permitir teste sem rede. Nunca lança: erro de
+ * rede, bloqueio de CORS ou resposta inesperada viram o estado `indisponivel`, com o
+ * motivo de cada fonte, e o cadastro manual segue disponível.
  */
 export async function consultarCnpj(
   cnpj: string,
@@ -184,42 +234,56 @@ export async function consultarCnpj(
   if (!validarCnpj(digitos)) {
     return { estado: 'invalido', motivo: 'Dígitos verificadores não conferem — confira a digitação.' };
   }
+  if (consultaBloqueadaPeloAmbiente()) {
+    return { estado: 'indisponivel', motivo: MOTIVO_AMBIENTE_BLOQUEADO };
+  }
   if (typeof buscar !== 'function') {
     return { estado: 'indisponivel', motivo: 'consulta automática não disponível neste ambiente' };
   }
 
-  const controlador = new AbortController();
-  const relogio = setTimeout(() => controlador.abort(), tempoLimiteMs);
+  const motivos: string[] = [];
 
-  try {
-    const resposta = await buscar(`${ENDPOINT}/${digitos}`, {
-      signal: controlador.signal,
-      headers: { Accept: 'application/json' },
-    });
+  for (const fonte of FONTES) {
+    const controlador = new AbortController();
+    const relogio = setTimeout(() => controlador.abort(), tempoLimiteMs);
 
-    if (resposta.status === 404) return { estado: 'nao-encontrado' };
-    if (resposta.status === 429) {
-      return { estado: 'indisponivel', motivo: 'limite de consultas atingido; tente de novo em alguns instantes' };
+    try {
+      const resposta = await buscar(fonte.url(digitos), {
+        signal: controlador.signal,
+        headers: { Accept: 'application/json' },
+      });
+
+      // CNPJ inexistente é resposta definitiva: não adianta tentar a próxima fonte.
+      if (resposta.status === 404) return { estado: 'nao-encontrado' };
+
+      if (resposta.status === 429) {
+        motivos.push(`${fonte.nome}: limite de consultas atingido`);
+        continue;
+      }
+      if (!resposta.ok) {
+        motivos.push(`${fonte.nome}: respondeu ${resposta.status}`);
+        continue;
+      }
+
+      const dados = extrairDados(await resposta.json());
+      if (!dados) {
+        motivos.push(`${fonte.nome}: resposta em formato inesperado`);
+        continue;
+      }
+
+      return { estado: 'ok', dados: { ...dados, cnpj: dados.cnpj || digitos } };
+    } catch (erro) {
+      const abortado = erro instanceof Error && erro.name === 'AbortError';
+      motivos.push(`${fonte.nome}: ${abortado ? 'demorou demais' : 'não respondeu'}`);
+    } finally {
+      clearTimeout(relogio);
     }
-    if (!resposta.ok) {
-      return { estado: 'indisponivel', motivo: `o serviço respondeu ${resposta.status}` };
-    }
-
-    const dados = extrairDados(await resposta.json());
-    if (!dados) return { estado: 'indisponivel', motivo: 'a resposta do serviço veio em formato inesperado' };
-
-    return { estado: 'ok', dados: { ...dados, cnpj: dados.cnpj || digitos } };
-  } catch (erro) {
-    const abortado = erro instanceof Error && erro.name === 'AbortError';
-    return {
-      estado: 'indisponivel',
-      motivo: abortado
-        ? 'a consulta demorou demais e foi interrompida'
-        : 'não foi possível alcançar o serviço a partir deste ambiente',
-    };
-  } finally {
-    clearTimeout(relogio);
   }
+
+  return {
+    estado: 'indisponivel',
+    motivo: `nenhuma fonte respondeu (${motivos.join('; ')})`,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  consultaBloqueadaPeloAmbiente,
   consultarCnpj,
   formatarCnpj,
   preencherComDadosDaReceita,
@@ -57,6 +58,9 @@ function CampoNumero({
 export function PainelPerfil({ cliente, onAlterar, onAvisar, ano, onAlterarAno, anosDisponiveis }: Props) {
   const [consultando, setConsultando] = useState(false);
   const cnpjCompleto = validarCnpj(cliente.cnpj);
+  // Na página publicada no Claude a consulta externa é bloqueada por política de
+  // segurança. Melhor avisar antes do clique do que deixar descobrir pelo erro.
+  const consultaBloqueada = consultaBloqueadaPeloAmbiente();
 
   async function buscarNaReceita() {
     setConsultando(true);
@@ -124,16 +128,24 @@ export function PainelPerfil({ cliente, onAlterar, onAvisar, ano, onAlterarAno, 
               type="button"
               className="botao botao--pequeno"
               onClick={() => void buscarNaReceita()}
-              disabled={!cnpjCompleto || consultando}
-              title={cnpjCompleto ? 'Buscar dados na base da Receita Federal' : 'Informe um CNPJ válido'}
+              disabled={!cnpjCompleto || consultando || consultaBloqueada}
+              title={
+                consultaBloqueada
+                  ? 'Consulta indisponível nesta versão publicada'
+                  : cnpjCompleto
+                    ? 'Buscar dados na base da Receita Federal'
+                    : 'Informe um CNPJ válido'
+              }
             >
               {consultando ? 'Buscando…' : 'Buscar'}
             </button>
           </span>
           <small className="campo__ajuda">
-            {cliente.cnpj && !cnpjCompleto
-              ? 'CNPJ incompleto ou com dígito verificador incorreto.'
-              : 'Preenche razão social, CNAE, anexo sugerido, situação cadastral e sócios.'}
+            {consultaBloqueada
+              ? 'Busca automática indisponível nesta versão publicada — preencha os campos à mão.'
+              : cliente.cnpj && !cnpjCompleto
+                ? 'CNPJ incompleto ou com dígito verificador incorreto.'
+                : 'Preenche razão social, CNAE, anexo sugerido, situação cadastral e sócios.'}
           </small>
         </label>
 

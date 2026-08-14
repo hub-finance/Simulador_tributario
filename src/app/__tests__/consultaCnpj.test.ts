@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   anexoSugeridoPorCnae,
+  consultaBloqueadaPeloAmbiente,
+  FONTES,
   consultarCnpj,
   extrairDados,
   formatarCnpj,
@@ -123,15 +125,64 @@ describe('extração da resposta', () => {
   });
 });
 
+/** Resposta representativa do CNPJ.ws, com os dados aninhados em `estabelecimento`. */
+const RESPOSTA_ANINHADA = {
+  razao_social: 'INDUSTRIA ANINHADA LTDA',
+  socios: [{ nome: 'MARIA SOUZA', qualificacao_socio: 'Sócia' }],
+  estabelecimento: {
+    cnpj: '19131243000197',
+    situacao_cadastral: 'Ativa',
+    atividade_principal: { id: '2599399', descricao: 'Fabricação de produtos de metal' },
+    nome_fantasia: 'ANINHADA',
+    uf: 'SP',
+  },
+};
+
 describe('consulta', () => {
-  it('devolve os dados quando o serviço responde', async () => {
+  it('devolve os dados quando a primeira fonte responde', async () => {
     const buscar = vi.fn().mockResolvedValue(resposta(RESPOSTA));
     const r = await consultarCnpj('19.131.243/0001-97', buscar);
     expect(r.estado).toBe('ok');
+    expect(buscar).toHaveBeenCalledTimes(1);
     expect(buscar).toHaveBeenCalledWith(
-      'https://brasilapi.com.br/api/cnpj/v1/19131243000197',
+      FONTES[0].url('19131243000197'),
       expect.objectContaining({ headers: { Accept: 'application/json' } }),
     );
+  });
+
+  it('cai para a segunda fonte quando a primeira falha', async () => {
+    const buscar = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(resposta(RESPOSTA_ANINHADA));
+
+    const r = await consultarCnpj('19131243000197', buscar);
+    expect(buscar).toHaveBeenCalledTimes(2);
+    expect(buscar).toHaveBeenLastCalledWith(FONTES[1].url('19131243000197'), expect.anything());
+    expect(r.estado).toBe('ok');
+    if (r.estado === 'ok') {
+      expect(r.dados.razaoSocial).toBe('INDUSTRIA ANINHADA LTDA');
+      expect(r.dados.cnaePrincipal).toBe('2599399');
+      expect(r.dados.situacaoCadastral).toBe('ATIVA');
+      expect(r.dados.socios.map((x) => x.nome)).toEqual(['MARIA SOUZA']);
+    }
+  });
+
+  it('CNPJ inexistente encerra sem tentar a próxima fonte', async () => {
+    const buscar = vi.fn().mockResolvedValue(resposta({}, 404));
+    const r = await consultarCnpj('19131243000197', buscar);
+    expect(r.estado).toBe('nao-encontrado');
+    expect(buscar).toHaveBeenCalledTimes(1);
+  });
+
+  it('quando nenhuma fonte responde, o motivo cita todas', async () => {
+    const buscar = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const r = await consultarCnpj('19131243000197', buscar);
+    expect(buscar).toHaveBeenCalledTimes(FONTES.length);
+    expect(r).toMatchObject({ estado: 'indisponivel' });
+    if (r.estado === 'indisponivel') {
+      for (const fonte of FONTES) expect(r.motivo).toContain(fonte.nome);
+    }
   });
 
   it('não vai à rede com CNPJ inválido', async () => {
@@ -148,31 +199,49 @@ describe('consulta', () => {
     expect(buscar).not.toHaveBeenCalled();
   });
 
-  it('trata 404 como não encontrado', async () => {
-    const r = await consultarCnpj('19131243000197', vi.fn().mockResolvedValue(resposta({}, 404)));
-    expect(r.estado).toBe('nao-encontrado');
+  it('limite de consultas em uma fonte faz tentar a seguinte', async () => {
+    const buscar = vi
+      .fn()
+      .mockResolvedValueOnce(resposta({}, 429))
+      .mockResolvedValueOnce(resposta(RESPOSTA));
+    const r = await consultarCnpj('19131243000197', buscar);
+    expect(r.estado).toBe('ok');
+    expect(buscar).toHaveBeenCalledTimes(2);
   });
 
-  it('trata 429 com mensagem de limite', async () => {
-    const r = await consultarCnpj('19131243000197', vi.fn().mockResolvedValue(resposta({}, 429)));
-    expect(r).toMatchObject({ estado: 'indisponivel' });
-    if (r.estado === 'indisponivel') expect(r.motivo).toContain('limite de consultas');
-  });
-
-  it('falha de rede não lança, vira indisponível', async () => {
-    const r = await consultarCnpj('19131243000197', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
-    expect(r).toMatchObject({ estado: 'indisponivel' });
-    if (r.estado === 'indisponivel') expect(r.motivo).toContain('não foi possível alcançar');
-  });
-
-  it('resposta em formato inesperado vira indisponível', async () => {
+  it('resposta em formato inesperado em todas as fontes vira indisponível', async () => {
     const r = await consultarCnpj('19131243000197', vi.fn().mockResolvedValue(resposta({ erro: 'x' })));
     expect(r).toMatchObject({ estado: 'indisponivel' });
+    if (r.estado === 'indisponivel') expect(r.motivo).toContain('formato inesperado');
   });
 
   it('sem fetch no ambiente, avisa em vez de quebrar', async () => {
     const r = await consultarCnpj('19131243000197', undefined as unknown as typeof fetch);
     expect(r).toMatchObject({ estado: 'indisponivel' });
+  });
+});
+
+describe('ambiente que bloqueia consulta externa', () => {
+  it('fora da página publicada, nada é bloqueado', () => {
+    expect(consultaBloqueadaPeloAmbiente()).toBe(false);
+  });
+
+  it('na página publicada, explica o motivo sem ir à rede', async () => {
+    const claude = { use: () => Promise.resolve(null) };
+    Object.assign(globalThis, { claude });
+    try {
+      expect(consultaBloqueadaPeloAmbiente()).toBe(true);
+      const buscar = vi.fn();
+      const r = await consultarCnpj('19131243000197', buscar);
+      expect(buscar).not.toHaveBeenCalled();
+      expect(r).toMatchObject({ estado: 'indisponivel' });
+      if (r.estado === 'indisponivel') {
+        expect(r.motivo).toContain('publicada como página no Claude');
+        expect(r.motivo).toContain('servidor do escritório');
+      }
+    } finally {
+      delete (globalThis as { claude?: unknown }).claude;
+    }
   });
 });
 
