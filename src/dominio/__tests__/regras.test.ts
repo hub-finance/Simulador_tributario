@@ -341,6 +341,25 @@ describe('diagnóstico', () => {
     expect(d.alertas.some((a) => a.titulo.includes('Saldo credor'))).toBe(true);
   });
 
+  it('os valores nas mensagens saem no padrão brasileiro', () => {
+    const d = diagnosticar({
+      simulacao: simular({ ...entradaBase, faturamentoMensal: 1_234_567.89 }),
+      cadastro: { possuiDebitosEmAberto: true, valorDebitos: 18_400 },
+      referencia: refJanela,
+    });
+    // O Intl separa "R$" do valor com espaço não-quebrável (U+00A0); normalizamos para comparar.
+    const normalizar = (s: string) => s.replace(/ /g, ' ');
+    const textos = normalizar(
+      [d.justificativa, ...d.alertas.map((a) => a.detalhe), d.limite.mensagem].join(' '),
+    );
+    // Nenhum número deve sair como "1234.56" — sempre "1.234,56".
+    expect(textos).not.toMatch(/R\$ \d+\.\d{2}(?!\d)/);
+    expect(textos).toMatch(/R\$ [\d.]+,\d{2}/);
+    expect(normalizar(d.alertas.find((a) => a.titulo.includes('Débitos'))?.detalhe ?? '')).toContain(
+      'R$ 18.400,00',
+    );
+  });
+
   it('alertas saem ordenados por severidade', () => {
     const d = diagnosticar({
       simulacao: simular({ ...entradaBase, ano: 2026 }),

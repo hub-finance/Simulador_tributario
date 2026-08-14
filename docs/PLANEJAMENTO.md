@@ -51,7 +51,8 @@ irregular perde a janela inteira, independentemente de qual cenário seja melhor
 
 1. Importar a carteira via CSV (layout em `docs/MATRIZ_DE_REGRAS.md`, seção "Importação").
 2. Rodar as duas simulações para cada cliente no ano-base 2027.
-3. Segmentar a carteira em quatro grupos de tratamento:
+3. Segmentar a carteira em quatro grupos de tratamento — o sistema faz isso automaticamente
+   e o relatório consolidado já sai agrupado por prioridade:
 
 | Grupo | Perfil | Resultado da simulação | Encaminhamento |
 |---|---|---|---|
@@ -66,7 +67,9 @@ Ele deve ser atacado primeiro.
 ### Fase 3 · Comunicação e decisão (01/07/2026 – 31/08/2026)
 
 1. Informativo geral para a base explicando as duas vias de recolhimento e a janela de setembro.
-2. Diagnóstico individual (relatório em PDF gerado pelo sistema) para os grupos 2, 3 e 4.
+2. Diagnóstico individual para os grupos 2, 3 e 4, usando o relatório "Diagnóstico do cliente".
+   Para captar empresas novas no mesmo movimento, o relatório "Diagnóstico de prospecção" usa
+   os mesmos cálculos com linguagem voltada a quem ainda não é cliente.
 3. Reunião com todo o grupo 3 — pauta única: se o cliente aceita pagar mais imposto para
    preservar competitividade junto aos compradores PJ.
 4. Decisão registrada no sistema com responsável, janela e observação. O registro é a prova
@@ -104,7 +107,9 @@ integral, IPI zerado, destaque de IBS/CBS na nota para quem optou pelo híbrido.
 | Obrigações e multas | `src/dominio/obrigacoes.ts` | PGDAS-D e DEFIS: piso, percentual mensal, teto e espontaneidade |
 | Calendário | `src/dominio/calendario.ts` | Janelas, prazos e contagem regressiva |
 | Diagnóstico | `src/dominio/diagnostico.ts` | Recomendação, ponto de equilíbrio comercial, alertas e bloqueios |
-| Interface | `src/ui/`, `src/App.tsx` | Dashboard, projeção 2026–2033, cronograma, relatório em PDF |
+| Segmentação | `src/dominio/segmentacao.ts` | Classificação automática da carteira nos quatro grupos de tratamento da Fase 2 |
+| Relatórios | `src/relatorios/` | Diagnóstico do cliente, diagnóstico de prospecção e consolidado da carteira |
+| Interface | `src/ui/`, `src/App.tsx` | Dashboard, projeção 2026–2033, cronograma e central de relatórios |
 
 ### Próximos passos sugeridos
 

@@ -10,6 +10,7 @@
  * desaparece. O sistema recalcula os dois cenários no anexo correto.
  */
 
+import { brl, pct } from './formatoBR';
 import type { NumeroAnexo } from './tabelasSimples';
 
 export const PISO_FATOR_R = 0.28;
@@ -54,9 +55,9 @@ export function calcularFatorR({ folha12Meses, rbt12 }: EntradaFatorR): Resultad
     anexoAplicavel: atingePiso ? 3 : 5,
     folhaFaltante,
     mensagem: atingePiso
-      ? `Fator R de ${(fatorR * 100).toFixed(2)}% — tributação pelo Anexo III.`
-      : `Fator R de ${(fatorR * 100).toFixed(2)}% — tributação pelo Anexo V. ` +
-        `Faltam R$ ${folhaFaltante.toFixed(2)} de folha em 12 meses para migrar ao Anexo III.`,
+      ? `Fator R de ${pct(fatorR)} — tributação pelo Anexo III.`
+      : `Fator R de ${pct(fatorR)} — tributação pelo Anexo V. ` +
+        `Faltam ${brl(folhaFaltante)} de folha em 12 meses para migrar ao Anexo III.`,
   };
 }
 

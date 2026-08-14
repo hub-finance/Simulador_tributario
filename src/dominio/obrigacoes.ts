@@ -6,6 +6,8 @@
  * de atraso, e a DEFIS passou a ter piso próprio.
  */
 
+import { brl } from './formatoBR';
+
 export type TipoObrigacao = 'PGDAS-D' | 'DEFIS';
 
 export interface RegraMulta {
@@ -108,10 +110,10 @@ export function calcularMultaAtraso(
     `${obrigacao}: ${diasAtraso} dia(s) de atraso = ${mesesConsiderados} mês(es)/fração x ` +
     `${(regra.percentualPorMes * 100).toFixed(0)}% = ${(percentualAplicado * 100).toFixed(1)}%` +
     (aplicouTeto ? ' (teto de 20% aplicado)' : '') +
-    `. Proporcional: R$ ${multaProporcional.toFixed(2)}` +
-    (aplicouPiso ? `; piso de R$ ${regra.pisoReais.toFixed(2)} prevaleceu` : '') +
+    `. Proporcional: ${brl(multaProporcional)}` +
+    (aplicouPiso ? `; piso de ${brl(regra.pisoReais)} prevaleceu` : '') +
     (espontanea ? '; redução de 50% por espontaneidade, limitada ao piso' : '') +
-    `. Valor final: R$ ${valorFinal.toFixed(2)}.`;
+    `. Valor final: ${brl(valorFinal)}.`;
 
   return {
     obrigacao,

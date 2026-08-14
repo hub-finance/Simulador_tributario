@@ -101,6 +101,29 @@ Legenda de status: **✅ implementada e testada** · **⚙️ parametrizável** 
 | 9.2 | Cálculo da folha faltante para virar de anexo | ✅ | `ResultadoFatorR.folhaFaltante` | › "calcula a folha faltante para virar de anexo" |
 | 9.3 | Lista de atividades sujeitas ao Fator R | 📋 | `ATIVIDADES_SUJEITAS_AO_FATOR_R` | — (referência) |
 
+## 10. Segmentação da carteira
+
+| # | Regra | Status | Implementação | Teste |
+|---|---|---|---|---|
+| 10.1 | Quatro grupos de tratamento, com ordem de prioridade | ✅ | `segmentacao.ts` → `GRUPOS` | `relatorios.test.ts` › "as prioridades são únicas e cobrem de 1 a 4" |
+| 10.2 | Bloqueio, sublimite, grupo econômico ou empate técnico têm precedência e vão para "Fronteira" | ✅ | `classificar` | › "bloqueio cadastral tem precedência", › "sublimite estourado também cai em fronteira" |
+| 10.3 | B2B com Tradicional mais barato vai para "Decisão comercial" | ✅ | `classificar` | › "B2B com Tradicional mais barato cai em decisão comercial" |
+| 10.4 | Consolidação de totais e contagem de bloqueios da carteira | ✅ | `resumirCarteira` | › "o resumo soma custos e conta bloqueios" |
+
+## 11. Aba Ajuda (convenção do projeto)
+
+Ver `CLAUDE.md`: todo sistema construído para este usuário precisa de uma aba Ajuda didática.
+
+| # | Regra | Status | Implementação | Teste |
+|---|---|---|---|---|
+| 11.1 | O assunto explicado do zero, sem pressupor conhecimento | ✅ | `conteudo/ajuda.ts` → seção `o-que-mudou` | `ajuda.test.ts` › "cobre as seções obrigatórias" |
+| 11.2 | Glossário com definição formal e tradução para linguagem de cliente | ✅ | seção `glossario` | › "inclui todo termo técnico que aparece na interface" |
+| 11.3 | Exemplo numérico calculado pelo motor, nunca escrito à mão | ✅ | bloco `exemplo-cadeia` em `PainelAjuda.tsx` | › "o comparativo dos dois cenários é calculado pelo motor" |
+| 11.4 | Como ler cada número da tela, campo a campo | ✅ | seção `ler-a-tela` | › "todo campo da tela documentado diz onde achar o dado" |
+| 11.5 | Analogias e respostas para as objeções da reunião | ✅ | seção `explicar-ao-cliente` | › "a seção de objeções responde as perguntas que aparecem na mesa" |
+| 11.6 | O que o sistema não faz: premissas e limites declarados | ✅ | seção `limites` | › "a seção de limites declara o que a ferramenta não faz" |
+| 11.7 | Os números citados no texto acompanham as constantes do domínio | ✅ | — | › "as alíquotas de referência citadas batem com o cronograma", › "as datas das janelas batem com o calendário" |
+
 ---
 
 ## Parâmetros configuráveis

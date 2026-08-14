@@ -238,7 +238,17 @@ export function simular(entrada: EntradaSimulacao): ResultadoSimulacao {
       tradicional: faturamento - tradicional.creditoTransferido,
       hibrido: faturamento - hibrido.creditoTransferido,
     },
-    // O ganho de crédito só tem valor econômico na parcela da receita vendida a PJ.
+    /*
+     * O ganho de crédito só tem valor econômico na parcela da receita vendida a PJ.
+     *
+     * Vale conhecer uma identidade do modelo: para uma empresa sem insumos que gerem
+     * crédito (e fora do Anexo II, onde o IPI extinto desloca a conta), o custo
+     * adicional do Híbrido é exatamente igual ao crédito adicional que ele transfere.
+     * Com 100% da receita em B2B a vantagem ponderada zera — os dois modelos se
+     * equivalem do ponto de vista da cadeia, e o que muda é só quem paga a conta.
+     * Nesses casos o diagnóstico devolve confiança "baixa" e a segmentação manda o
+     * cliente para análise individual, em vez de fingir que existe resposta ótima.
+     */
     vantagemPonderada: economiaCaixaNoHibrido + ganhoDeCreditoNoHibrido * fracaoB2B,
   };
 

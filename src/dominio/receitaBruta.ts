@@ -6,6 +6,7 @@
  * mais comum de autuação depois do cruzamento sistêmico.
  */
 
+import { brl, pct } from './formatoBR';
 import { LIMITE_SIMPLES_NACIONAL, SUBLIMITE_ICMS_ISS } from './tabelasSimples';
 
 export interface ComponenteReceita {
@@ -126,7 +127,7 @@ export function consolidarReceitaBruta(c: ComposicaoReceita): ReceitaConsolidada
   const atipicas = c.gorjetas + c.jurosRecebidos + c.multasDeMoraRecebidas + c.operacoesEntregaFutura;
   if (atipicas > 0) {
     alertas.push(
-      `R$ ${atipicas.toFixed(2)} em parcelas atípicas (gorjetas, juros, multas de mora e entrega futura) ` +
+      `${brl(atipicas)} em parcelas atípicas (gorjetas, juros, multas de mora e entrega futura) ` +
         'estão sendo somados à receita bruta conforme definição oficial da RFB. Confira se o sistema de ' +
         'origem já os inclui, para não duplicar.',
     );
@@ -168,17 +169,17 @@ export function avaliarLimite(rbt12: number, ibsAcumulado12Meses = 0): Avaliacao
   if (baseConsiderada > LIMITE_SIMPLES_NACIONAL) {
     situacao = 'limite-excedido';
     mensagem =
-      `Base de R$ ${baseConsiderada.toFixed(2)} excede o limite de R$ ${LIMITE_SIMPLES_NACIONAL.toLocaleString('pt-BR')}. ` +
+      `Base de ${brl(baseConsiderada)} excede o limite de ${brl(LIMITE_SIMPLES_NACIONAL)}. ` +
       'Avaliar exclusão do Simples Nacional e migração para Lucro Presumido/Real.';
   } else if (baseConsiderada > SUBLIMITE_ICMS_ISS) {
     situacao = 'sublimite-excedido';
     mensagem =
-      `Base de R$ ${baseConsiderada.toFixed(2)} excede o sublimite de R$ ${SUBLIMITE_ICMS_ISS.toLocaleString('pt-BR')}. ` +
+      `Base de ${brl(baseConsiderada)} excede o sublimite de ${brl(SUBLIMITE_ICMS_ISS)}. ` +
       'ICMS e ISS saem do DAS e passam ao regime normal — o comparativo Tradicional x Híbrido muda de premissa.';
   } else if (percentualDoSublimite >= 0.8) {
     situacao = 'atencao';
     mensagem =
-      `Base em ${(percentualDoSublimite * 100).toFixed(1)}% do sublimite. Com o IBS integrando a conta, ` +
+      `Base em ${pct(percentualDoSublimite, 1)} do sublimite. Com o IBS integrando a conta, ` +
       'o estouro pode chegar antes do previsto pelo faturamento nominal.';
   }
 

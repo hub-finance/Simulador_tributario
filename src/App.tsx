@@ -1,22 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { carregarCarteira, criarId, exportarCsv, importarCsv, salvarCarteira } from './app/armazenamento';
+import { entregarArquivo } from './app/download';
 import { clienteVazio, type Cliente, type DecisaoRegistrada } from './app/tipos';
-import { janelaVigente, proximaJanela } from './dominio/calendario';
+import { agendaAtiva, janelaVigente, proximaJanela } from './dominio/calendario';
 import { diagnosticar } from './dominio/diagnostico';
 import { calcularFatorR } from './dominio/fatorR';
 import type { EntradaSimulacao } from './dominio/motorSimulacao';
 import { simular } from './dominio/motorSimulacao';
+import { classificar, resumirCarteira, type LinhaCarteira } from './dominio/segmentacao';
 import { CRONOGRAMA_TRANSICAO } from './dominio/transicao';
+import { relatorioCarteira } from './relatorios/relatorioCarteira';
+import { relatorioCliente } from './relatorios/relatorioCliente';
+import { relatorioProspeccao } from './relatorios/relatorioProspeccao';
+import { PainelAjuda } from './ui/PainelAjuda';
+import { PainelRelatorios, type DocumentoDisponivel } from './ui/PainelRelatorios';
 import { BarraLateral } from './ui/BarraLateral';
 import { Comparativo } from './ui/Comparativo';
 import { PainelCalendario } from './ui/PainelCalendario';
 import { PainelDiagnostico } from './ui/PainelDiagnostico';
 import { PainelPerfil } from './ui/PainelPerfil';
 import { Projecao } from './ui/Projecao';
-import { exportarRelatorio } from './ui/relatorio';
 import { periodoBR, reais } from './ui/formatacao';
 
-type Aba = 'simulador' | 'cronograma' | 'projecao';
+type Aba = 'simulador' | 'cronograma' | 'projecao' | 'relatorios' | 'ajuda';
 
 const ANOS = CRONOGRAMA_TRANSICAO.map((a) => a.ano);
 
@@ -73,6 +79,110 @@ export default function App() {
   const janela = janelaVigente(referencia);
   const aCaminho = proximaJanela(referencia);
 
+  /**
+   * Carteira inteira simulada e classificada, para os relatórios consolidados.
+   * É o mesmo motor da tela, rodado uma vez por cliente.
+   */
+  const carteiraAnalisada: LinhaCarteira[] = useMemo(
+    () =>
+      clientes.map((c) => {
+        const fr = calcularFatorR({ folha12Meses: c.folha12Meses, rbt12: c.rbt12 });
+        const sim = simular({
+          faturamentoMensal: c.faturamentoMensal,
+          rbt12: c.rbt12,
+          anexo: c.sujeitoAoFatorR ? fr.anexoAplicavel : c.anexo,
+          perfil: c.perfil,
+          percentualReceitaB2B: c.percentualReceitaB2B,
+          insumosTributaveis: c.insumosTributaveis,
+          ano,
+          saldoCredorAnterior: c.saldoCredorAnterior,
+        });
+        const diag = diagnosticar({
+          simulacao: sim,
+          cadastro: {
+            possuiDebitosEmAberto: c.possuiDebitosEmAberto,
+            valorDebitos: c.valorDebitos,
+            possuiPendenciasCadastrais: c.possuiPendenciasCadastrais,
+            cnpjsInterligados: c.cnpjsInterligados,
+          },
+          referencia,
+          ibsAcumulado12Meses: c.ibsAcumulado12Meses,
+        });
+        return {
+          nome: c.nome,
+          cnpj: c.cnpj,
+          grupo: classificar({ simulacao: sim, diagnostico: diag }),
+          simulacao: sim,
+          diagnostico: diag,
+          decidido: c.decisao !== null,
+        };
+      }),
+    [clientes, ano, referencia],
+  );
+
+  const resumo = useMemo(
+    () => (carteiraAnalisada.length > 0 ? resumirCarteira(carteiraAnalisada) : null),
+    [carteiraAnalisada],
+  );
+
+  const documentos: DocumentoDisponivel[] = useMemo(() => {
+    const agenda = agendaAtiva(referencia);
+    const semCliente = 'Selecione um cliente na carteira para gerar este documento.';
+
+    return [
+      {
+        chave: 'cliente',
+        titulo: 'Diagnóstico do cliente',
+        publico: 'Para a reunião com o cliente da casa',
+        quandoUsar: 'Leva a recomendação, a conta dos dois cenários e os prazos que ele precisa cumprir.',
+        conteudo: [
+          'Recomendação com a justificativa em linguagem de negócio',
+          'Comparativo de custo e de crédito repassado ao comprador PJ',
+          'Pontos de atenção e bloqueios cadastrais',
+          'Calendário com os prazos do cliente',
+        ],
+        gerar: () => relatorioCliente({ nome: cliente!.nome, cnpj: cliente!.cnpj, simulacao: resultado!, diagnostico: diagnostico! }),
+        indisponivel: cliente && resultado && diagnostico ? undefined : semCliente,
+      },
+      {
+        chave: 'prospeccao',
+        titulo: 'Diagnóstico de prospecção',
+        publico: 'Para prospectar empresa que ainda não é cliente',
+        quandoUsar:
+          'Parte dos números que o prospect informou, mostra o que está em jogo e termina em proposta de conversa.',
+        conteudo: [
+          'Explicação dos dois modelos sem jargão técnico',
+          'O valor exato em jogo no caso dele, por mês e por ano',
+          'Contagem regressiva até a janela de decisão',
+          'O que o escritório faz e qual o próximo passo',
+        ],
+        gerar: () =>
+          relatorioProspeccao({
+            nome: cliente!.nome,
+            cnpj: cliente!.cnpj,
+            simulacao: resultado!,
+            diagnostico: diagnostico!,
+            janela: janela ?? aCaminho,
+          }),
+        indisponivel: cliente && resultado && diagnostico ? undefined : semCliente,
+      },
+      {
+        chave: 'carteira',
+        titulo: 'Consolidado da carteira',
+        publico: 'Para a reunião interna de supervisão',
+        quandoUsar: 'Mostra onde a operação está e qual a ordem de ataque nos dias que restam.',
+        conteudo: [
+          'Quantos clientes já decidiram e quantos estão travados',
+          'Segmentação em grupos de tratamento, por prioridade',
+          'Lista nominal dos bloqueios a resolver antes da janela',
+          'Total de imposto e de crédito em jogo na carteira',
+        ],
+        gerar: () => relatorioCarteira(carteiraAnalisada, ano, agenda),
+        indisponivel: carteiraAnalisada.length > 0 ? undefined : 'Nenhum cliente na carteira.',
+      },
+    ];
+  }, [cliente, resultado, diagnostico, carteiraAnalisada, ano, referencia, janela, aCaminho]);
+
   function alterarCliente(alteracoes: Partial<Cliente>) {
     if (!cliente) return;
     setClientes((atual) =>
@@ -112,15 +222,15 @@ export default function App() {
     );
   }
 
-  function baixarModeloCsv() {
-    const conteudo = exportarCsv(clientes);
-    const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'carteira-simulador.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+  async function baixarCarteira() {
+    const resultado = await entregarArquivo('carteira-simulador.csv', exportarCsv(clientes), 'text/csv');
+    if (resultado.estado === 'salvo') {
+      setAviso(`Carteira exportada em ${resultado.nomeArquivo}.`);
+    } else if (resultado.estado === 'recusado') {
+      setAviso('Download cancelado.');
+    } else {
+      setAviso(`Não foi possível exportar: ${resultado.motivo}.`);
+    }
   }
 
   return (
@@ -163,7 +273,7 @@ export default function App() {
           <button type="button" className="botao" onClick={() => inputArquivo.current?.click()}>
             Importar CSV
           </button>
-          <button type="button" className="botao botao--secundario" onClick={baixarModeloCsv}>
+          <button type="button" className="botao botao--secundario" onClick={() => void baixarCarteira()}>
             Exportar carteira
           </button>
         </div>
@@ -196,7 +306,9 @@ export default function App() {
               [
                 ['simulador', 'Simulador'],
                 ['projecao', 'Projeção 2026–2033'],
+                ['relatorios', 'Relatórios'],
                 ['cronograma', 'Cronograma e prazos'],
+                ['ajuda', 'Ajuda'],
               ] as [Aba, string][]
             ).map(([chave, rotulo]) => (
               <button
@@ -214,7 +326,13 @@ export default function App() {
             <PainelCalendario referencia={referencia} onAlterarReferencia={setReferencia} />
           )}
 
-          {aba !== 'cronograma' && !cliente && (
+          {aba === 'ajuda' && <PainelAjuda />}
+
+          {aba === 'relatorios' && (
+            <PainelRelatorios documentos={documentos} resumo={resumo} onResultado={setAviso} />
+          )}
+
+          {aba !== 'cronograma' && aba !== 'relatorios' && aba !== 'ajuda' && !cliente && (
             <p className="vazio">Selecione ou cadastre um cliente para iniciar a simulação.</p>
           )}
 
@@ -233,7 +351,7 @@ export default function App() {
                 diagnostico={diagnostico}
                 onRegistrarDecisao={registrarDecisao}
                 onLimparDecisao={() => alterarCliente({ decisao: null })}
-                onExportar={() => exportarRelatorio(cliente, resultado, diagnostico)}
+                onExportar={() => setAba('relatorios')}
               />
             </>
           )}

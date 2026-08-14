@@ -21,7 +21,7 @@ híbrido pode custar a mais em caixa e ainda assim compensar.
 ```bash
 npm install
 npm run dev      # servidor de desenvolvimento
-npm test         # 74 testes do motor e das regras
+npm test         # 125 testes do motor, das regras, dos relatórios e do conteúdo da Ajuda
 npm run build    # build de produção em dist/
 ```
 
@@ -44,8 +44,22 @@ porque a decisão de setembro vale por um semestre mas o desenho de preço olha 
 **Cronograma.** Todas as janelas e prazos com contagem regressiva sobre a data corrente,
 e a consequência explícita de perder cada um.
 
-**Relatório.** Documento em PDF para enviar ao cliente, gerado pelo navegador — nenhum
-dado sai da máquina.
+**Ajuda.** Aba didática, para quem opera entender o assunto e conseguir explicar ao cliente:
+a reforma do zero, glossário de cada termo da tela com a tradução para linguagem de cliente,
+exemplo numérico calculado pelo próprio motor, roteiro de uso, analogias e respostas prontas
+para as objeções da reunião, e a lista do que o sistema não faz.
+
+**Relatórios.** Três documentos prontos para reunião, cada um com seu público:
+
+| Documento | Para quem | O que entrega |
+|---|---|---|
+| Diagnóstico do cliente | Reunião com o cliente da casa | Recomendação, comparativo dos dois cenários, pontos de atenção e prazos |
+| Diagnóstico de prospecção | Empresa que ainda não é cliente | Os dois modelos sem jargão, o valor em jogo no caso dele, contagem regressiva e proposta de conversa |
+| Consolidado da carteira | Reunião interna de supervisão | Quem já decidiu, quem está travado, segmentação por prioridade e totais em jogo |
+
+Cada um pode ser visualizado, impresso em PDF ou baixado como arquivo HTML autocontido —
+que abre offline em qualquer navegador e pode ser anexado a e-mail. Os documentos são
+gerados na máquina; nenhum dado de cliente sai dela.
 
 ## Arquitetura
 
@@ -60,9 +74,11 @@ src/
     obrigacoes.ts        PGDAS-D e DEFIS: multas por atraso
     calendario.ts        Janelas, prazos e contagem regressiva
     diagnostico.ts       Recomendação, alertas e bloqueios
-    __tests__/           74 testes
+    segmentacao.ts       Classificação da carteira em grupos de tratamento
+  relatorios/       Geração dos três documentos e sua entrega (imprimir ou baixar)
+  conteudo/         Texto da aba Ajuda, como dado estruturado e testável
   app/              Modelo de dados e persistência (localStorage, importação CSV)
-  ui/               Componentes de interface e geração do relatório
+  ui/               Componentes de interface
 db/schema.sql       Schema relacional de destino, para quando houver backend
 docs/               Planejamento e matriz de regras
 ```
@@ -76,6 +92,7 @@ cronograma de transição ou das tabelas dos anexos.
   escritório fase a fase, segmentação da carteira em grupos de tratamento e roadmap do produto.
 - **[docs/MATRIZ_DE_REGRAS.md](docs/MATRIZ_DE_REGRAS.md)** — cada regra levantada, onde está
   implementada e qual teste a cobre; parâmetros configuráveis e rotina de revalidação anual.
+- **[CLAUDE.md](CLAUDE.md)** — convenções do projeto, incluindo o padrão obrigatório da aba Ajuda.
 
 ## Aviso
 

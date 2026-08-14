@@ -14,6 +14,7 @@
  */
 
 import { avaliarEvento, CALENDARIO, type StatusEvento } from './calendario';
+import { brl, pct } from './formatoBR';
 import type { ResultadoSimulacao } from './motorSimulacao';
 import { avaliarLimite, type AvaliacaoLimite } from './receitaBruta';
 
@@ -88,23 +89,23 @@ export function diagnosticar({
   let justificativa: string;
   if (recomendacao === 'Híbrido' && comparativo.economiaCaixaNoHibrido > 0) {
     justificativa =
-      `O modelo Híbrido é mais barato em caixa (economia de R$ ${comparativo.economiaCaixaNoHibrido.toFixed(2)} no mês) ` +
-      `e ainda amplia o crédito repassado ao cliente PJ em R$ ${comparativo.ganhoDeCreditoNoHibrido.toFixed(2)}. ` +
+      `O modelo Híbrido é mais barato em caixa (economia de ${brl(comparativo.economiaCaixaNoHibrido)} no mês) ` +
+      `e ainda amplia o crédito repassado ao cliente PJ em ${brl(comparativo.ganhoDeCreditoNoHibrido)}. ` +
       'Decisão sem trade-off.';
   } else if (recomendacao === 'Híbrido') {
     justificativa =
-      `O modelo Tradicional é R$ ${Math.abs(comparativo.economiaCaixaNoHibrido).toFixed(2)} mais barato em caixa, ` +
-      `mas o Híbrido transfere R$ ${comparativo.ganhoDeCreditoNoHibrido.toFixed(2)} a mais de crédito. ` +
-      `Com ${(fracaoB2B * 100).toFixed(0)}% da receita vendida a PJ, o ganho comercial supera o custo adicional.`;
+      `O modelo Tradicional é ${brl(Math.abs(comparativo.economiaCaixaNoHibrido))} mais barato em caixa, ` +
+      `mas o Híbrido transfere ${brl(comparativo.ganhoDeCreditoNoHibrido)} a mais de crédito. ` +
+      `Com ${pct(fracaoB2B, 0)} da receita vendida a PJ, o ganho comercial supera o custo adicional.`;
   } else if (fracaoB2B >= 0.5) {
     justificativa =
-      `Mesmo com ${(fracaoB2B * 100).toFixed(0)}% da receita em B2B, o custo adicional do Híbrido ` +
-      `(R$ ${Math.abs(comparativo.economiaCaixaNoHibrido).toFixed(2)}) supera o ganho de crédito ponderado ` +
-      `(R$ ${pontoDeEquilibrioComercial.toFixed(2)}). Manter o Tradicional e renegociar preço com os clientes PJ.`;
+      `Mesmo com ${pct(fracaoB2B, 0)} da receita em B2B, o custo adicional do Híbrido ` +
+      `(${brl(Math.abs(comparativo.economiaCaixaNoHibrido))}) supera o ganho de crédito ponderado ` +
+      `(${brl(pontoDeEquilibrioComercial)}). Manter o Tradicional e renegociar preço com os clientes PJ.`;
   } else {
     justificativa =
       `Perfil predominantemente B2C: o crédito repassado tem pouco valor econômico para o comprador final. ` +
-      `Prevalece o menor custo em caixa — o Tradicional economiza R$ ${Math.abs(comparativo.economiaCaixaNoHibrido).toFixed(2)} no mês.`;
+      `Prevalece o menor custo em caixa — o Tradicional economiza ${brl(Math.abs(comparativo.economiaCaixaNoHibrido))} no mês.`;
   }
 
   // ---------- Alerta de risco comercial (diretriz B2B) ----------
@@ -115,9 +116,9 @@ export function diagnosticar({
       detalhe:
         'O Cenário Tradicional é mais barato, mas o cliente é B2B: ele repassará crédito limitado ao IBS/CBS ' +
         'embutido no DAS. Avaliar o impacto junto a clientes industriais e varejistas antes de fechar a decisão — ' +
-        `o preço líquido para o comprador PJ fica R$ ${(
+        `o preço líquido para o comprador PJ fica ${brl((
           comparativo.precoLiquidoParaClientePJ.tradicional - comparativo.precoLiquidoParaClientePJ.hibrido
-        ).toFixed(2)} mais caro que no Híbrido.`,
+        ))} mais caro que no Híbrido.`,
       origem: 'Diretriz comercial B2B x B2C',
     });
   }
@@ -140,7 +141,7 @@ export function diagnosticar({
       titulo: 'Débitos em aberto impedem a opção',
       detalhe:
         'A presença de débitos barra a confirmação ou alteração do regime na janela de setembro' +
-        (cadastro.valorDebitos ? ` (R$ ${cadastro.valorDebitos.toFixed(2)} em aberto)` : '') +
+        (cadastro.valorDebitos ? ` (${brl(cadastro.valorDebitos)} em aberto)` : '') +
         '. Regularizar ou parcelar até 30/06/2026 para não perder a janela.',
       origem: 'Auditoria cadastral — plano de ação do escritório',
     });
@@ -167,7 +168,7 @@ export function diagnosticar({
       titulo: 'Cruzamento de faturamento global do grupo',
       detalhe:
         `Somando ${interligados.length + 1} CNPJs com sócios em comum, o faturamento global chega a ` +
-        `R$ ${somaGrupo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. ` +
+        `${brl(somaGrupo)}. ` +
         (somaGrupo > LIMITE_SIMPLES
           ? 'Acima do limite de R$ 4.800.000,00 — com a integração dos sistemas de União, Estados e Municípios, ' +
             'esse cruzamento roda automaticamente e pode gerar exclusão de ofício.'
@@ -205,7 +206,7 @@ export function diagnosticar({
       severidade: 'atencao',
       titulo: 'Saldo credor de IBS/CBS',
       detalhe:
-        `Os créditos de insumos superam os débitos do mês em R$ ${hibrido.saldoCredorAcumulado.toFixed(2)}. ` +
+        `Os créditos de insumos superam os débitos do mês em ${brl(hibrido.saldoCredorAcumulado)}. ` +
         'O saldo é transportado para a competência seguinte — considere o efeito no fluxo de caixa antes de ' +
         'tratar o Híbrido como economia imediata.',
       origem: 'Regime não cumulativo',
